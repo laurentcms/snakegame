@@ -1,0 +1,259 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRI-BRUH-NOCEPHALE</title>
+  <link href="https://fonts.googleapis.com/css?family=Raleway:200&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #1D1F20;
+      margin: 0;
+      font-family: 'Raleway', Arial, sans-serif;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    #scoreboard {
+      font-size: 16px;
+      margin-bottom: 10px;
+      display: none;
+    }
+
+    .gradient-border {
+      --borderWidth: 4px;
+      background: #1D1F20;
+      position: relative;
+      border-radius: var(--borderWidth);
+      padding: var(--borderWidth);
+      z-index: 0;
+    }
+
+    .gradient-border::after {
+      content: '';
+      position: absolute;
+      top: calc(-1 * var(--borderWidth));
+      left: calc(-1 * var(--borderWidth));
+      height: calc(100% + var(--borderWidth) * 2);
+      width: calc(100% + var(--borderWidth) * 2);
+      background: linear-gradient(60deg, #f79533, #f37055, #ef4e7b, #a166ab,
+                                  #5073b8, #1098ad, #07b39b, #6fba82);
+      border-radius: calc(2 * var(--borderWidth));
+      z-index: -1;
+      animation: animatedgradient 3s ease alternate infinite;
+      background-size: 300% 300%;
+    }
+
+    @keyframes animatedgradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    canvas {
+      display: none;
+      border-radius: 4px;
+      background-color: #111;
+    }
+
+    #pause-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      font-size: 14px;
+      display: none;
+    }
+
+    img.banner {
+      width: 300px;
+      margin-bottom: 20px;
+    }
+
+    #menu, #game-over {
+      text-align: center;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <img src="banner.png" alt="Snake Banner" class="banner" />
+    <h1>TRI-BRUH-NOCEPHALE</h1>
+    <button onclick="startGame()">Play</button>
+  </div>
+
+  <div id="scoreboard">
+    Score: <span id="score">0</span> | Best: <span id="best">0</span>
+  </div>
+
+  <div class="gradient-border">
+    <canvas id="game" width="600" height="400"></canvas>
+  </div>
+
+  <button id="pause-btn" onclick="togglePause()">Pause</button>
+
+  <div id="game-over" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="final-score"></p>
+    <button onclick="restartGame()">Rejouer</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const pauseBtn = document.getElementById("pause-btn");
+    const gameOverScreen = document.getElementById("game-over");
+    const finalScore = document.getElementById("final-score");
+
+    const scoreDisplay = document.getElementById("score");
+    const bestDisplay = document.getElementById("best");
+    const scoreboard = document.getElementById("scoreboard");
+
+    const box = 20;
+    let score = 0;
+    let best = localStorage.getItem("best") || 0;
+    let dir = "RIGHT";
+    let game, isPaused = false, started = false;
+
+    let snake = [];
+    let food = {};
+    const eatSound = new Audio("sounds/eat.mp3");
+    const gameoverSound = new Audio("sounds/gameover.mp3");
+
+    let soundReady = false;
+    document.addEventListener("keydown", () => {
+      if (!soundReady) {
+        eatSound.play().catch(() => {});
+        gameoverSound.play().catch(() => {});
+        soundReady = true;
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (!started || isPaused) return;
+      if (event.key === "ArrowUp" && dir !== "DOWN") dir = "UP";
+      if (event.key === "ArrowDown" && dir !== "UP") dir = "DOWN";
+      if (event.key === "ArrowLeft" && dir !== "RIGHT") dir = "LEFT";
+      if (event.key === "ArrowRight" && dir !== "LEFT") dir = "RIGHT";
+    });
+
+    function startGame() {
+      document.getElementById("menu").style.display = "none";
+      canvas.style.display = "block";
+      pauseBtn.style.display = "block";
+      scoreboard.style.display = "block";
+      score = 0;
+      dir = "RIGHT";
+      started = true;
+      isPaused = false;
+      scoreDisplay.textContent = score;
+      bestDisplay.textContent = best;
+      snake = [{ x: 10 * box, y: 10 * box }];
+      food = {
+        x: Math.floor(Math.random() * 30) * box,
+        y: Math.floor(Math.random() * 20) * box
+      };
+      game = setInterval(draw, 100);
+    }
+
+    function togglePause() {
+      if (isPaused) {
+        game = setInterval(draw, 100);
+        pauseBtn.textContent = "Pause";
+      } else {
+        clearInterval(game);
+        pauseBtn.textContent = "Reprendre";
+      }
+      isPaused = !isPaused;
+    }
+
+    function restartGame() {
+      gameOverScreen.style.display = "none";
+      canvas.style.display = "block";
+      pauseBtn.style.display = "block";
+      scoreboard.style.display = "block";
+      score = 0;
+      dir = "RIGHT";
+      scoreDisplay.textContent = score;
+      snake = [{ x: 10 * box, y: 10 * box }];
+      food = {
+        x: Math.floor(Math.random() * 30) * box,
+        y: Math.floor(Math.random() * 20) * box
+      };
+      game = setInterval(draw, 100);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < snake.length; i++) {
+        ctx.fillStyle = i === 0 ? "lime" : "green";
+        ctx.fillRect(snake[i].x, snake[i].y, box, box);
+      }
+
+      ctx.fillStyle = "red";
+      ctx.font = "20px Arial";
+      ctx.fillText("T", food.x + 4, food.y + 17);
+
+      let headX = snake[0].x;
+      let headY = snake[0].y;
+
+      if (dir === "LEFT") headX -= box;
+      if (dir === "RIGHT") headX += box;
+      if (dir === "UP") headY -= box;
+      if (dir === "DOWN") headY += box;
+
+      if (headX < 0) headX = canvas.width - box;
+      if (headX >= canvas.width) headX = 0;
+      if (headY < 0) headY = canvas.height - box;
+      if (headY >= canvas.height) headY = 0;
+
+      for (let i = 1; i < snake.length; i++) {
+        if (snake[i].x === headX && snake[i].y === headY) {
+          gameoverSound.play();
+          clearInterval(game);
+          if (score > best) localStorage.setItem("best", score);
+          finalScore.textContent = "Score: " + score + " | Best: " + best;
+          gameOverScreen.style.display = "block";
+          canvas.style.display = "none";
+          pauseBtn.style.display = "none";
+          scoreboard.style.display = "none";
+          return;
+        }
+      }
+
+      let newHead = { x: headX, y: headY };
+
+      if (headX === food.x && headY === food.y) {
+        eatSound.play();
+        score++;
+        scoreDisplay.textContent = score;
+        if (score > best) {
+          best = score;
+          bestDisplay.textContent = best;
+        }
+        food = {
+          x: Math.floor(Math.random() * 30) * box,
+          y: Math.floor(Math.random() * 20) * box
+        };
+      } else {
+        snake.pop();
+      }
+
+      snake.unshift(newHead);
+    }
+  </script>
+</body>
+</html>
